@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fabien Dostie</title>
+    
+    <!-- Mouse effect shaders -->
+    <script id="mouse-displacement-vs" type="x-shader/x-vertex">
+      precision mediump float;
+      
+      attribute vec3 aVertexPosition;
+      attribute vec2 aTextureCoord;
+      
+      uniform mat4 uMVMatrix;
+      uniform mat4 uPMatrix;
+      
+      uniform vec2 uMousePosition;
+      uniform float uDisplacementStrength;
+      
+      varying vec2 vTextureCoord;
+      varying vec2 vMousePosition;
+      
+      void main() {
+        vec3 vertexPosition = aVertexPosition;
+        gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
+        
+        vTextureCoord = aTextureCoord;
+        vMousePosition = uMousePosition;
+      }
+    </script>
+    
+    <script id="mouse-displacement-fs" type="x-shader/x-fragment">
+      precision mediump float;
+      
+      varying vec2 vTextureCoord;
+      varying vec2 vMousePosition;
+      
+      uniform sampler2D displacedImage;
+      uniform float uDisplacementStrength;
+      
+      void main() {
+        // Calculate distance from current pixel to mouse position
+        vec2 mouseEffect = vMousePosition - vTextureCoord;
+        float distanceFromMouse = length(mouseEffect);
+        
+        // Create a more dramatic bulge effect
+        float radius = 0.3;  // Smaller radius for more concentrated effect
+        float strength = exp(-distanceFromMouse * 5.0);  // Exponential falloff for sharper effect
+        float bulgeStrength = strength * uDisplacementStrength;
+        
+        // Calculate displacement direction
+        vec2 direction = normalize(mouseEffect);
+        
+        // Create a push/pull effect
+        vec2 displacement = direction * bulgeStrength;
+        
+        // Add magnification
+        float magnification = mix(1.0, 2.0, bulgeStrength);
+        vec2 magnifiedCoords = mix(vTextureCoord, vMousePosition, bulgeStrength * 0.5);
+        
+        // Combine displacement and magnification
+        vec2 finalCoords = mix(vTextureCoord, magnifiedCoords, bulgeStrength) + displacement;
+        
+        // Add chromatic aberration
+        vec4 color;
+        float aberrationStrength = bulgeStrength * 0.05;
+        color.r = texture2D(displacedImage, finalCoords + vec2(aberrationStrength, 0.0)).r;
+        color.g = texture2D(displacedImage, finalCoords).g;
+        color.b = texture2D(displacedImage, finalCoords - vec2(aberrationStrength, 0.0)).b;
+        color.a = 1.0;
+        
+        gl_FragColor = color;
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html> 
